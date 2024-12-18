@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代辦事項清單</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        input[type="text"], input[type="number"], input[type="checkbox"] {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .todo-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .todo-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .todo-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .edit-btn, .delete-btn {
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .edit-btn {
+            background-color: #ffa500;
+            color: white;
+        }
+        .edit-btn:hover {
+            background-color: #ff8c00;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        .delete-btn:hover {
+            background-color: #e53935;
+        }
+        .load-todos-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .load-todos-group input {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>代辦事項清單</h1>
+        <div class="input-group">
+            <input type="text" id="studentIdInput" placeholder="請輸入學號...">
+            <input type="text" id="taskInput" placeholder="請輸入代辦事項...">
+            <button onclick="addTask()">新增</button>
+        </div>
+
+        <div class="load-todos-group">
+            <input type="text" id="loadStudentIdInput" placeholder="請輸入學號以載入代辦事項...">
+            <button onclick="loadTodos()">載入代辦事項</button>
+        </div>
+
+        <ul class="todo-list" id="todoList"></ul>
+    </div>
+
+    <script>
+        const apiUrl = "https://nfutest.pythonanywhere.com"; // 您的 API 網址
+
+        // 新增代辦事項
+        async function addTask() {
+            const studentIdInput = document.getElementById("studentIdInput");
+            const taskInput = document.getElementById("taskInput");
+
+            const studentId = studentIdInput.value.trim();
+            const task = taskInput.value.trim();
+
+            if (!studentId || !task) {
+                alert("請輸入學號和代辦事項！");
+                return;
+            }
+
+            const newTask = {
+                student_id: studentId,
+                task: task
+            };
+
+            try {
+                // 發送 POST 請求來新增代辦事項
+                const response = await fetch(`${apiUrl}/todos`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(newTask)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayTask(data);
+                    studentIdInput.value = '';  // 清空學號輸入框
+                    taskInput.value = '';  // 清空代辦事項輸入框
+                } else {
+                    alert("新增代辦事項失敗！");
+                }
+            } catch (error) {
+                console.error('錯誤:', error);
+                alert("發生錯誤，請稍後再試！");
+            }
+        }
+
+        // 顯示新增的代辦事項
+        function displayTask(task) {
+            const todoList = document.getElementById("todoList");
+            const li = document.createElement("li");
+            li.className = 'todo-item';
+            li.id = `todo-${task.id}`;
+            li.innerHTML = `
+                <span class="task-text">${task.task}</span>
+                <span class="completed-status">${task.completed ? "已完成" : "未完成"}</span>
+                <div class="todo-actions">
+                    <button class="edit-btn" onclick="editTask(${task.id})">編輯</button>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})">刪除</button>
+                </div>
+            `;
+            todoList.appendChild(li);
+        }
+
+        // 載入所有代辦事項
+        async function loadTodos() {
+            const loadStudentIdInput = document.getElementById("loadStudentIdInput");
+            const studentId = loadStudentIdInput.value.trim();
+
+            if (!studentId) {
+                alert("請輸入學號來載入代辦事項！");
+                return;
+            }
+
+            const todoList = document.getElementById("todoList");
+            todoList.innerHTML = ''; // 清空現有代辦事項
+
+            try {
+                const response = await fetch(`${apiUrl}/todos?student_id=${studentId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const todos = data.todos;
+
+                    if (todos.length === 0) {
+                        todoList.innerHTML = "<li>目前沒有代辦事項</li>";
+                    } else {
+                        todos.forEach(todo => {
+                            displayTask(todo);
+                        });
+                    }
+                } else {
+                    alert("無法載入代辦事項！");
+                }
+            } catch (error) {
+                console.error('錯誤:', error);
+                alert("發生錯誤，請稍後再試！");
+            }
+        }
+
+        // 編輯代辦事項
+async function editTask(taskId) {
+    const taskElement = document.getElementById(`todo-${taskId}`);
+    const taskText = taskElement.querySelector('.task-text').innerText;
+    const completedStatus = taskElement.querySelector('.completed-status').innerText === "已完成";
+
+    const newTaskText = prompt("編輯代辦事項", taskText);
+    const newCompletedStatus = confirm("是否已完成此代辦事項？") ? true : false;
+
+    if (newTaskText === null) {
+        return; // 使用者取消編輯
+    }
+
+    // 確保學號是從正確的輸入框中獲取
+    const studentId = document.getElementById("loadStudentIdInput").value.trim();
+
+    // 如果學號沒有填寫，顯示錯誤並返回
+    if (!studentId) {
+        alert("請輸入學號！");
+        return;
+    }
+
+    const updatedTask = {
+        student_id: studentId,
+        task: newTaskText,
+        completed: newCompletedStatus
+    };
+
+    try {
+        // 發送 PUT 請求來更新代辦事項
+        const response = await fetch(`${apiUrl}/todos/${taskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updatedTask)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            // 更新代辦事項顯示
+            taskElement.querySelector('.task-text').innerText = data.task;
+            taskElement.querySelector('.completed-status').innerText = data.completed ? "已完成" : "未完成";
+        } else {
+            alert("更新代辦事項失敗！");
+        }
+    } catch (error) {
+        console.error('錯誤:', error);
+        alert("發生錯誤，請稍後再試！");
+    }
+}
+
+
+        // 刪除代辦事項
+        async function deleteTask(taskId) {
+            const studentId = document.getElementById("loadStudentIdInput").value.trim();
+
+            if (!studentId) {
+                alert("請輸入學號來刪除代辦事項！");
+                return;
+            }
+
+            const confirmDelete = confirm("確定要刪除這個代辦事項嗎？");
+            if (!confirmDelete) return;
+
+            try {
+                // 發送 DELETE 請求來刪除代辦事項
+                const response = await fetch(`${apiUrl}/todos/${taskId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ student_id: studentId })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // 刪除代辦事項元素
+                    const taskElement = document.getElementById(`todo-${taskId}`);
+                    taskElement.remove();
+                    alert(data.message); // 顯示刪除成功的訊息
+                } else {
+                    alert("刪除代辦事項失敗！");
+                }
+            } catch (error) {
+                console.error('錯誤:', error);
+                alert("發生錯誤，請稍後再試！");
+            }
+        }
+    </script>
+</body>
+</html>
